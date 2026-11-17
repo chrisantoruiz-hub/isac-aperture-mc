@@ -115,14 +115,14 @@ def rms_stats(u, up, eps, alpha, beta):
 
 def beam(p):
     """Build the 6D-ish beam (x-x', y-y', dt-dW) from species, energy, emittances, Twiss."""
-    A, q = float(p.get("A", 8)), float(p.get("q", 2))
-    w = float(p.get("energy", 1.5))                  # MeV/u
+    A, q = float(p.get("A", 26)), float(p.get("q", 5))
+    w = float(p.get("energy", 0.2))                  # MeV/u
     if A <= 0 or q <= 0 or w <= 0:
         raise ValueError("A, q and energy must be positive")
     # quoted emittances may be rms or 4*rms (2-rms ellipse area / pi)
-    div = 4.0 if p.get("emit_def") == "4rms" else 1.0
+    div = 4.0 if p.get("emit_def", "4rms") == "4rms" else 1.0
     eps_n = float(p.get("eps_n", 0.2)) / div        # rms normalised, mm*mrad (pi omitted)
-    eps_l = float(p.get("eps_l", 1.5)) / div        # rms longitudinal, keV/u*ns
+    eps_l = float(p.get("eps_l", 0.55)) / div        # rms longitudinal, keV/u*ns
     k = kinematics(w, A, q)
     eps_x = eps_n / k["betagamma"]                   # rms geometric, mm*mrad
     tw = {key: float(p.get(key, d)) for key, d in
@@ -165,10 +165,10 @@ def beam(p):
 # --------------------------------------------------------------------------- ray transport
 def beam_setup(p):
     """Kinematics, rms geometric emittance [mm*mrad] and Twiss at the waist plane z = 0."""
-    A, q, w = float(p.get("A", 8)), float(p.get("q", 2)), float(p.get("energy", 1.5))
+    A, q, w = float(p.get("A", 26)), float(p.get("q", 5)), float(p.get("energy", 0.2))
     if A <= 0 or q <= 0 or w <= 0:
         raise ValueError("A, q and energy must be positive")
-    div = 4.0 if p.get("emit_def") == "4rms" else 1.0
+    div = 4.0 if p.get("emit_def", "4rms") == "4rms" else 1.0
     k = kinematics(w, A, q)
     eps = float(p.get("eps_n", 0.2)) / div / k["betagamma"]
     tw = {key: float(p.get(key, d)) for key, d in dict(ax=0.0, bx=1.0, ay=0.0, by=1.0).items()}
@@ -187,7 +187,7 @@ def sigma_at(eps, alpha, beta, z_mm):
 def _geom(p):
     g = dict(
         n=int(min(max(int(p.get("n", 200_000)), 1), MAX_PARTICLES)),
-        z_start=-abs(float(p.get("L_back", 150.0))),     # mm, start plane upstream of waist
+        z_start=-abs(float(p.get("L_back", 1500.0))),     # mm, start plane upstream of waist
         z_ap=float(p.get("z_ap", -105.0)),               # mm, entrance aperture plane
         d_ap=float(p.get("diameter", 6.0)),              # mm
         exit_on=bool(p.get("exit_on", True)),               # downstream aperture
@@ -300,7 +300,7 @@ def transport(p):
 def transport_sweep(p):
     """Transmission vs. waist sigma, centroid offset, aperture diameter or aperture position."""
     k, eps, tw = beam_setup(p)
-    var = p.get("var", "sigma_w")
+    var = p.get("var", "x0")
     lo, hi = float(p["lo"]), float(p["hi"])
     steps = int(min(max(int(p.get("steps", 25)), 2), 200))
     rows = []

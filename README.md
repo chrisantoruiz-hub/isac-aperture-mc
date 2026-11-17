@@ -18,10 +18,13 @@ Options: `--port 9000`, `--no-browser`.
 - Choose a beam species (A, q) and energy in MeV/u. The page shows β, γ, βγ,
   A/q and the magnetic rigidity Bρ, and warns when A/q is above the approximate
   ISAC RFQ, DTL or ISAC-II limits.
+- Defaults: ²⁶Al⁵⁺ at 0.2 MeV/u.
 - ISAC emittances are the defaults:
   - normalized transverse emittance: 0.2 π mm·mrad
-  - longitudinal emittance: 1.5 π keV/u·ns overall, or 0.55 through the DTL
-- You choose whether the quoted values are rms or 4 × rms.
+  - longitudinal emittance: 0.55 π keV/u·ns through the DTL (1.5 overall is
+    also available)
+- You choose whether the quoted values are rms or 4 × rms; the default is
+  4 × rms.
 - The geometric emittance is ε = εₙ / (βγ). The longitudinal emittance in
   keV/u·ns is treated as invariant under acceleration.
 - The waist is set by Twiss α and β at z = 0, or directly by a waist σ.
@@ -32,7 +35,7 @@ Options: `--port 9000`, `--no-browser`.
 ### 2 · Ray tracing through the apertures
 1. Particles are sampled at the waist, z = 0 (centre of the gas cell).
 2. Each ray is traced back upstream in free space, with no apertures, to a
-   start plane (150 mm upstream by default).
+   start plane (1500 mm upstream by default).
 3. Each ray, (x, y, z) plus direction (dx, dy, dz), is propagated downstream.
 4. A ray is transmitted only if it passes **both** apertures:
    - entrance: Ø6 mm at z = −105 mm
@@ -48,7 +51,7 @@ Options: `--port 9000`, `--no-browser`.
 - Gaussian beam with free drift only: no fields, space charge or gas
   scattering.
 - Whether the quoted ISAC emittances are rms or 4 × rms is selectable; the
-  default is rms.
+  default is 4 × rms.
 - The default Twiss values (an upright waist with β = 1 m) are placeholders.
   Enter the real waist β or σ.
 

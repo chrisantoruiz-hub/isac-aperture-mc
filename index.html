@@ -76,7 +76,7 @@
     <label>Beam species <select id="species"></select></label>
     <label>Mass number A <input id="A" type="number" step="1" min="1"></label>
     <label>Charge state q <input id="q" type="number" step="1" min="1"></label>
-    <label>Energy (MeV/u) <input id="energy" type="number" value="1.5" step="0.01" min="0.001"></label>
+    <label>Energy (MeV/u) <input id="energy" type="number" value="0.2" step="0.01" min="0.001"></label>
     <div class="chips" id="energyChips"></div>
     <div class="warn" id="speciesWarn"></div>
     <hr>
@@ -84,13 +84,13 @@
     <label><span>ε<sub>n</sub> transverse (π mm·mrad)</span> <input id="eps_n" type="number" value="0.2" step="0.01" min="0.001"></label>
     <label><span>ε<sub>L</sub> preset</span> <select id="epsLPreset">
       <option value="1.5">ISAC overall — 1.5</option>
-      <option value="0.55">Through DTL — 0.55</option>
+      <option value="0.55" selected>Through DTL — 0.55</option>
       <option value="custom">Custom…</option>
     </select></label>
-    <label><span>ε<sub>L</sub> longitudinal (π keV/u·ns)</span> <input id="eps_l" type="number" value="1.5" step="0.05" min="0.001"></label>
+    <label><span>ε<sub>L</sub> longitudinal (π keV/u·ns)</span> <input id="eps_l" type="number" value="0.55" step="0.05" min="0.001"></label>
     <label>Quoted values are <select id="emit_def">
       <option value="rms">rms</option>
-      <option value="4rms">4 × rms (2-rms ellipse)</option>
+      <option value="4rms" selected>4 × rms (2-rms ellipse)</option>
     </select></label>
     <hr>
     <h2>Twiss at the waist (z = 0)</h2>
@@ -133,7 +133,7 @@
   <section class="card">
     <h2>Geometry (z along beam, mm)</h2>
     <p class="note" style="margin:-4px 0 10px">Waist = beam above, at z = 0 (gas-cell centre). Rays are back-tracked in free space to the start plane, then propagated downstream; a particle counts as transmitted only if it passes both apertures.</p>
-    <label>Back-track distance (mm) <input id="L_back" type="number" value="150" step="5" min="0"></label>
+    <label>Back-track distance (mm) <input id="L_back" type="number" value="1500" step="5" min="0"></label>
     <label>Entrance aperture z (mm) <input id="z_ap" type="number" value="-105" step="1"></label>
     <label>Entrance Ø (mm) <input id="diameter" type="number" value="6" step="0.1" min="0.01"></label>
     <label>Downstream aperture z (mm) <input id="z_exit" type="number" value="105" step="1"></label>
@@ -152,11 +152,11 @@
     <hr>
     <h2>Parameter sweep</h2>
     <label>Vary <select id="var">
-      <option value="sigma_w">Waist σ (round, mm)</option><option value="x0">x₀ offset (mm)</option>
+      <option value="sigma_w">Waist σ (round, mm)</option><option value="x0" selected>x₀ offset (mm)</option>
       <option value="diameter">Entrance Ø (mm)</option><option value="z_ap">Entrance z (mm)</option>
       <option value="d_exit">Downstream Ø (mm)</option><option value="z_exit">Downstream z (mm)</option>
     </select></label>
-    <label>From <input id="lo" type="number" value="0.2" step="0.1"></label>
+    <label>From <input id="lo" type="number" value="-4" step="0.1"></label>
     <label>To <input id="hi" type="number" value="4" step="0.1"></label>
     <label>Steps <input id="steps" type="number" value="25" min="2" max="200"></label>
     <button id="sweepBtn">Run sweep</button>
@@ -201,7 +201,7 @@
         <div class="legend"><span>— aperture</span><span><span class="line" style="border-top-style:dashed"></span>1σ, 2σ beam</span></div>
       </div>
       <div class="card">
-        <h2>Sweep: transmission vs <span id="sweepVarLabel">waist σ</span></h2>
+        <h2>Sweep: transmission vs <span id="sweepVarLabel">x₀</span></h2>
         <canvas id="sweepCanvas"></canvas>
         <div class="legend">
           <span><span class="dot" style="background:var(--pass)"></span>net MC ±1σ</span>
@@ -229,7 +229,7 @@ const ENERGY_PRESETS = [
 ];
 SPECIES.forEach(([n, A, q], i) => $("species").add(new Option(`${n}  (q = ${q}+)`, i)));
 $("species").add(new Option("Custom…", "custom"));
-$("species").value = 3;  // 8Li
+$("species").value = 14;  // 26Al
 function applySpecies() {
   const v = $("species").value;
   if (v !== "custom") { const [, A, q] = SPECIES[+v]; $("A").value = A; $("q").value = q; }
