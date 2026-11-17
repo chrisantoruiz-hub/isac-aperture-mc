@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ISAC Beam Phase Space</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --text: #1d232b; --muted: #66707c; --line: #dde1e6;
+    --accent: #2563eb; --pass: #2563eb; --fail: #e0662b; --aperture: #1d232b; --ell: #c2185b; --warn: #b45309;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14171b; --panel: #1d2127; --text: #e6e9ed; --muted: #98a1ac; --line: #313740;
+            --accent: #6b9bff; --pass: #6b9bff; --fail: #f08a50; --aperture: #e6e9ed; --ell: #ff6fa8; --warn: #fbbf24; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+  header { padding: 18px 24px 4px; }
+  h1 { font-size: 20px; margin: 0; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  .section-title { font-size: 16px; margin: 18px 24px 0; }
+  main { display: grid; grid-template-columns: 320px 1fr; gap: 16px; padding: 12px 24px 8px; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; padding: 12px 16px; } .section-title { margin: 16px 16px 0; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 12px; }
+  label { display: grid; grid-template-columns: 1fr 120px; align-items: center; gap: 8px; margin-bottom: 9px; }
+  label.check { grid-template-columns: auto 1fr; }
+  label.check input { width: auto; }
+  input, select { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px;
+                  background: var(--bg); color: var(--text); font: inherit; }
+  input:disabled { opacity: .6; }
+  button { width: 100%; padding: 9px; border: 0; border-radius: 7px; background: var(--accent); color: #fff;
+           font: 600 14px system-ui; cursor: pointer; margin-top: 6px; }
+  button:disabled { opacity: .55; cursor: wait; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 10px; }
+  .chips button { width: auto; margin: 0; padding: 3px 9px; font: 500 12px system-ui; background: var(--bg);
+                  color: var(--text); border: 1px solid var(--line); }
+  .twiss { display: grid; grid-template-columns: 40px 1fr 1fr; gap: 6px 8px; align-items: center; margin-bottom: 10px; }
+  .twiss span { color: var(--muted); font-size: 12px; }
+  .big { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .stat .k { color: var(--muted); font-size: 12px; }
+  .stat .v { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .plots { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .plots3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 1250px) { .plots3 { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 1100px) { .plots { grid-template-columns: 1fr; } }
+  @media (max-width: 700px) { .plots3 { grid-template-columns: 1fr; } }
+  canvas { width: 100%; aspect-ratio: 1 / 1; display: block; }
+  #sweepCanvas { aspect-ratio: 4 / 3; }
+  .legend { display: flex; gap: 14px; color: var(--muted); font-size: 12px; margin-top: 6px; flex-wrap: wrap; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  .line { display: inline-block; width: 16px; height: 0; border-top: 2px solid var(--ell); margin-right: 5px; vertical-align: middle; }
+  .err { color: var(--fail); margin-top: 8px; min-height: 1em; }
+  .warn { color: var(--warn); font-size: 12px; margin: 4px 0 8px; }
+  .note { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+  th, td { text-align: right; padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .tablewrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ISAC Beam Phase Space &amp; Aperture Transmission</h1>
+  <p>Monte Carlo of transverse (x–x′, y–y′) and longitudinal (Δt–ΔW) phase space from ISAC emittances, feeding a circular-aperture transmission study.</p>
+</header>
+
+<!-- ============================ BEAM ============================ -->
+<div class="section-title">1 · Beam emittance</div>
+<main>
+  <section class="card">
+    <h2>Species &amp; energy</h2>
+    <label>Beam species <select id="species"></select></label>
+    <label>Mass number A <input id="A" type="number" step="1" min="1"></label>
+    <label>Charge state q <input id="q" type="number" step="1" min="1"></label>
+    <label>Energy (MeV/u) <input id="energy" type="number" value="1.5" step="0.01" min="0.001"></label>
+    <div class="chips" id="energyChips"></div>
+    <div class="warn" id="speciesWarn"></div>
+    <hr>
+    <h2>Emittances (ISAC)</h2>
+    <label><span>ε<sub>n</sub> transverse (π mm·mrad)</span> <input id="eps_n" type="number" value="0.2" step="0.01" min="0.001"></label>
+    <label><span>ε<sub>L</sub> preset</span> <select id="epsLPreset">
+      <option value="1.5">ISAC overall — 1.5</option>
+      <option value="0.55">Through DTL — 0.55</option>
+      <option value="custom">Custom…</option>
+    </select></label>
+    <label><span>ε<sub>L</sub> longitudinal (π keV/u·ns)</span> <input id="eps_l" type="number" value="1.5" step="0.05" min="0.001"></label>
+    <label>Quoted values are <select id="emit_def">
+      <option value="rms">rms</option>
+      <option value="4rms">4 × rms (2-rms ellipse)</option>
+    </select></label>
+    <hr>
+    <h2>Twiss at the waist (z = 0)</h2>
+    <div class="twiss">
+      <span></span><span>α</span><span>β</span>
+      <span>x</span><input id="ax" type="number" value="0" step="0.1"><input id="bx" type="number" value="1" step="0.1" min="0.001" title="m (= mm/mrad)">
+      <span>y</span><input id="ay" type="number" value="0" step="0.1"><input id="by" type="number" value="1" step="0.1" min="0.001" title="m (= mm/mrad)">
+      <span>z</span><input id="az" type="number" value="0" step="0.1"><input id="bz" type="number" value="0.2" step="0.05" min="0.001" title="ns/(keV/u)">
+    </div>
+    <p class="note" style="margin-top:-4px">β<sub>x,y</sub> in m (= mm/mrad), β<sub>z</sub> in ns/(keV/u). α = 0 means an upright waist.</p>
+    <label><span>…or set waist σ<sub>x,y</sub> (mm)</span> <input id="waist_sigma" type="number" step="0.1" min="0.01" placeholder="e.g. 1.0"></label>
+    <label>Particles <input id="n_beam" type="number" value="50000" step="10000" min="100"></label>
+    <label>RF freq. (MHz) <input id="f_rf" type="number" value="106.08" step="0.01" min="0.01"></label>
+    <button id="beamBtn">Generate beam</button>
+    <div class="err" id="beamErr"></div>
+  </section>
+
+  <section style="min-width:0">
+    <div class="card" style="margin-bottom:16px">
+      <div class="stats" id="kinStats"></div>
+      <hr>
+      <div class="tablewrap"><table id="emitTable"></table></div>
+      <p class="note">Geometric ε = ε<sub>n</sub> / (βγ). The longitudinal emittance in keV/u·ns is invariant under acceleration and is not scaled with energy. Contours are 2-rms ellipses (area 4π ε<sub>rms</sub>); a Gaussian beam has 1 − e⁻² = 86.5 % inside.</p>
+    </div>
+    <div class="plots3">
+      <div class="card"><h2>Horizontal x – x′</h2><canvas id="cx"></canvas></div>
+      <div class="card"><h2>Vertical y – y′</h2><canvas id="cy"></canvas></div>
+      <div class="card"><h2>Longitudinal Δt – ΔW</h2><canvas id="cz"></canvas></div>
+    </div>
+    <div class="legend" style="margin:8px 4px 0">
+      <span><span class="dot" style="background:var(--pass)"></span>MC particles (sample)</span>
+      <span><span class="line"></span>2-rms ellipse</span>
+    </div>
+  </section>
+</main>
+
+<!-- ============================ APERTURE ============================ -->
+<div class="section-title">2 · Ray tracing through the gas-cell entrance and downstream apertures</div>
+<main>
+  <section class="card">
+    <h2>Geometry (z along beam, mm)</h2>
+    <p class="note" style="margin:-4px 0 10px">Waist = beam above, at z = 0 (gas-cell centre). Rays are back-tracked in free space to the start plane, then propagated downstream; a particle counts as transmitted only if it passes both apertures.</p>
+    <label>Back-track distance (mm) <input id="L_back" type="number" value="150" step="5" min="0"></label>
+    <label>Entrance aperture z (mm) <input id="z_ap" type="number" value="-105" step="1"></label>
+    <label>Entrance Ø (mm) <input id="diameter" type="number" value="6" step="0.1" min="0.01"></label>
+    <label>Downstream aperture z (mm) <input id="z_exit" type="number" value="105" step="1"></label>
+    <label>Downstream Ø (mm) <input id="d_exit" type="number" value="8" step="0.1" min="0.01"></label>
+    <hr>
+    <h2>Beam centroid at waist</h2>
+    <label>x₀ (mm) <input id="x0" type="number" value="0" step="0.1"></label>
+    <label>y₀ (mm) <input id="y0" type="number" value="0" step="0.1"></label>
+    <label>x₀′ (mrad) <input id="xp0" type="number" value="0" step="0.5"></label>
+    <label>y₀′ (mrad) <input id="yp0" type="number" value="0" step="0.5"></label>
+    <hr>
+    <label>Particles N <input id="n" type="number" value="200000" step="50000" min="1"></label>
+    <label>Seed (blank = random) <input id="seed" type="number" placeholder="random"></label>
+    <button id="runBtn">Run ray-tracing MC</button>
+    <div class="err" id="err"></div>
+    <hr>
+    <h2>Parameter sweep</h2>
+    <label>Vary <select id="var">
+      <option value="sigma_w">Waist σ (round, mm)</option><option value="x0">x₀ offset (mm)</option>
+      <option value="diameter">Entrance Ø (mm)</option><option value="z_ap">Entrance z (mm)</option>
+      <option value="d_exit">Downstream Ø (mm)</option><option value="z_exit">Downstream z (mm)</option>
+    </select></label>
+    <label>From <input id="lo" type="number" value="0.2" step="0.1"></label>
+    <label>To <input id="hi" type="number" value="4" step="0.1"></label>
+    <label>Steps <input id="steps" type="number" value="25" min="2" max="200"></label>
+    <button id="sweepBtn">Run sweep</button>
+    <p class="note">Sweep uses the beam and geometry above (N capped at 1 M per point).</p>
+  </section>
+
+  <section style="min-width:0">
+    <div class="card" style="margin-bottom:16px">
+      <div class="stats">
+        <div class="stat" style="grid-column: span 2"><div class="k">Net transmission, both apertures (MC)</div><div class="big" id="T">—</div></div>
+        <div class="stat"><div class="k">Statistical error (1σ)</div><div class="v" id="E">—</div></div>
+        <div class="stat"><div class="k">Transmitted / total</div><div class="v" id="NP">—</div></div>
+        <div class="stat"><div class="k">Passed entrance (MC)</div><div class="v" id="NE">—</div></div>
+        <div class="stat"><div class="k">Lost at downstream (MC)</div><div class="v" id="LD">—</div></div>
+        <div class="stat"><div class="k">Exact, entrance alone</div><div class="v" id="An">—</div></div>
+        <div class="stat"><div class="k">Exact, downstream alone</div><div class="v" id="AnX">—</div></div>
+        <div class="stat"><div class="k">σ<sub>x</sub> / σ<sub>y</sub> at entrance</div><div class="v" id="SA">—</div></div>
+        <div class="stat"><div class="k">σ<sub>x</sub> / σ<sub>y</sub> at downstream</div><div class="v" id="SX">—</div></div>
+        <div class="stat"><div class="k">σ<sub>x</sub> at start plane</div><div class="v" id="SS">—</div></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <h2>Side view x – z: rays and ±2σ envelope</h2>
+      <canvas id="side" style="aspect-ratio: 5 / 2"></canvas>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--pass)"></span>transmitted ray</span>
+        <span><span class="dot" style="background:var(--fail)"></span>blocked ray (stops at the aperture that hits it)</span>
+        <span><span class="line"></span>±2σ<sub>x</sub> envelope</span>
+        <span>┆ start plane &nbsp; ▮ aperture &nbsp; ✕ waist (z = 0)</span>
+      </div>
+    </div>
+    <div class="plots3">
+      <div class="card">
+        <h2>x – x′ at start plane</h2>
+        <canvas id="cstart"></canvas>
+        <div class="legend"><span><span class="dot" style="background:var(--pass)"></span>transmitted</span>
+          <span><span class="dot" style="background:var(--fail)"></span>blocked</span><span><span class="line"></span>2-rms</span></div>
+      </div>
+      <div class="card">
+        <h2>x – y at entrance aperture</h2>
+        <canvas id="scatter"></canvas>
+        <div class="legend"><span>— aperture</span><span><span class="line" style="border-top-style:dashed"></span>1σ, 2σ beam</span></div>
+      </div>
+      <div class="card">
+        <h2>Sweep: transmission vs <span id="sweepVarLabel">waist σ</span></h2>
+        <canvas id="sweepCanvas"></canvas>
+        <div class="legend">
+          <span><span class="dot" style="background:var(--pass)"></span>net MC ±1σ</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<div style="height:16px"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// ---------------------------------------------------------------- species / energy
+// Representative ISAC beams (stable + RIB). Charge states are typical choices; edit freely.
+const SPECIES = [
+  ["4He", 4, 1], ["6He", 6, 2], ["7Li", 7, 2], ["8Li", 8, 2], ["9Li", 9, 2], ["11Li", 11, 2],
+  ["11Be", 11, 2], ["12C", 12, 3], ["15O", 15, 3], ["18F", 18, 4], ["20Ne", 20, 4], ["21Na", 21, 5],
+  ["22Ne", 22, 4], ["26Na", 26, 5], ["26Al", 26, 5], ["38K", 38, 7], ["40Ar", 40, 7],
+  ["80Rb", 80, 15], ["132Sn", 132, 25],
+];
+const ENERGY_PRESETS = [
+  ["RFQ out 0.153", 0.153], ["DTL 0.5", 0.5], ["DTL max 1.53", 1.53], ["ISAC-II 5", 5], ["ISAC-II 10", 10],
+];
+SPECIES.forEach(([n, A, q], i) => $("species").add(new Option(`${n}  (q = ${q}+)`, i)));
+$("species").add(new Option("Custom…", "custom"));
+$("species").value = 3;  // 8Li
+function applySpecies() {
+  const v = $("species").value;
+  if (v !== "custom") { const [, A, q] = SPECIES[+v]; $("A").value = A; $("q").value = q; }
+  checkSpecies();
+}
+function checkSpecies() {
+  const A = +$("A").value, q = +$("q").value, E = +$("energy").value, aq = A / q, w = [];
+  if (aq > 30) w.push(`A/q = ${aq.toFixed(2)} exceeds the ISAC RFQ limit (≈30).`);
+  if (E > 0.153 && aq > 6) w.push(`A/q = ${aq.toFixed(2)} exceeds the ISAC DTL limit (≈6) for E > 0.153 MeV/u.`);
+  if (E > 1.53 && aq > 7) w.push(`A/q = ${aq.toFixed(2)} likely too high for ISAC-II (≈7).`);
+  $("speciesWarn").textContent = w.join(" ");
+}
+ENERGY_PRESETS.forEach(([lab, e]) => {
+  const b = document.createElement("button"); b.textContent = lab;
+  b.onclick = () => { $("energy").value = e; checkSpecies(); runBeam(); };
+  $("energyChips").appendChild(b);
+});
+$("species").onchange = () => { applySpecies(); runBeam(); };
+["A", "q"].forEach(id => $(id).addEventListener("input", () => { $("species").value = "custom"; checkSpecies(); }));
+$("energy").addEventListener("input", checkSpecies);
+$("epsLPreset").onchange = () => {
+  const v = $("epsLPreset").value;
+  if (v !== "custom") { $("eps_l").value = v; runBeam(); }
+};
+$("eps_l").addEventListener("input", () => {
+  const v = $("eps_l").value;
+  $("epsLPreset").value = ["1.5", "0.55"].includes(v) ? v : "custom";
+});
+
+// ---------------------------------------------------------------- helpers
+async function post(url, body) {
+  const r = await fetch(url, { method: "POST", body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+const pct = v => (100 * v).toFixed(3) + " %";
+const fmt = (v, d = 3) => (v === null || v === undefined) ? "—" :
+  (Math.abs(v) >= 1e4 || (Math.abs(v) < 1e-3 && v !== 0)) ? v.toExponential(d - 1) : (+v.toPrecision(d + 1)).toString();
+function setupCanvas(c) {
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  c.width = w * dpr; c.height = h * dpr;
+  const ctx = c.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+  return { ctx, w, h };
+}
+function niceStep(raw) {
+  const e = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / e;
+  return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * e;
+}
+const tick = (t, s) => +t.toFixed(Math.max(0, -Math.floor(Math.log10(s)) + 1));
+
+// ---------------------------------------------------------------- beam
+let beam = null;
+function beamParams() {
+  const o = {};
+  ["A", "q", "energy", "eps_n", "eps_l", "ax", "bx", "ay", "by", "az", "bz", "n_beam", "f_rf"].forEach(k => o[k] = +$(k).value);
+  o.emit_def = $("emit_def").value; o.seed = $("seed").value;
+  return o;
+}
+async function runBeam() {
+  $("beamBtn").disabled = true; $("beamErr").textContent = "";
+  try {
+    beam = await post("/api/beam", beamParams());
+    renderBeam();
+    await runMC();
+  } catch (e) { $("beamErr").textContent = e.message; }
+  $("beamBtn").disabled = false;
+}
+function renderBeam() {
+  const b = beam, k = b.kin, L = b.long, s = b.stats;
+  const tiles = [
+    ["β = v/c", fmt(k.beta, 4)], ["γ", fmt(k.gamma, 6)], ["βγ", fmt(k.betagamma, 4)],
+    ["A/q", fmt(k.a_over_q, 3)], ["Bρ (T·m)", fmt(k.brho, 4)],
+    ["σ<sub>t</sub> / σ<sub>φ</sub> @ " + L.f_rf + " MHz", fmt(L.sigma_t_ns, 3) + " ns / " + fmt(L.sigma_phi_deg, 3) + "°"],
+    ["σ<sub>z</sub> (bunch length)", fmt(L.sigma_z_mm, 3) + " mm"],
+    ["σ<sub>W</sub> / W", fmt(L.sigma_w_kev_u, 3) + " keV/u / " + fmt(100 * L.dw_over_w, 3) + " %"],
+    ["σ<sub>p</sub> / p", fmt(100 * L.dp_over_p, 3) + " %"],
+  ];
+  $("kinStats").innerHTML = tiles.map(([kk, v]) => `<div class="stat"><div class="k">${kk}</div><div class="v">${v}</div></div>`).join("");
+  const e = b.eps, rows = [
+    ["Horizontal x", "π mm·mrad", e.n_rms, e.x_rms, e.x_2rms, s.x],
+    ["Vertical y", "π mm·mrad", e.n_rms, e.x_rms, e.x_2rms, s.y],
+    ["Longitudinal", "π keV/u·ns", null, e.l_rms, e.l_2rms, s.z],
+  ];
+  $("emitTable").innerHTML =
+    `<tr><th>Plane</th><th>Units</th><th>ε<sub>n,rms</sub></th><th>ε<sub>rms</sub> (geom.)</th><th>ε<sub>2rms</sub> = 4ε</th>` +
+    `<th>ε<sub>rms</sub> MC</th><th>σ</th><th>σ′</th><th>in 2-rms</th></tr>` +
+    rows.map(([n, u, en, er, e4, st], i) => `<tr><td>${n}</td><td>${u}</td><td>${en === null ? "—" : fmt(en)}</td>` +
+      `<td>${fmt(er)}</td><td>${fmt(e4)}</td><td>${fmt(st.eps)}</td>` +
+      `<td>${fmt(st.sigma)} ${i < 2 ? "mm" : "ns"}</td><td>${fmt(st.sigma_p)} ${i < 2 ? "mrad" : "keV/u"}</td>` +
+      `<td>${(100 * st.frac_2rms).toFixed(1)} %</td></tr>`).join("");
+  drawBeamPlots();
+}
+function drawBeamPlots() {
+  if (!beam) return;
+  const p = beam.points, t = beam.twiss, e = beam.eps;
+  drawPhase($("cx"), p.x, p.xp, t.ax, t.bx, e.x_rms, "x (mm)", "x′ (mrad)");
+  drawPhase($("cy"), p.y, p.yp, t.ay, t.by, e.x_rms, "y (mm)", "y′ (mrad)");
+  drawPhase($("cz"), p.dt, p.dw, t.az, t.bz, e.l_rms, "Δt (ns)", "ΔW (keV/u)");
+}
+function drawPhase(canvas, u, up, alpha, beta, eps, xl, yl, ok = null, cu = 0, cup = 0) {
+  const { ctx, w, h } = setupCanvas(canvas);
+  const gam = (1 + alpha * alpha) / beta;
+  const xe = 3.6 * Math.sqrt(eps * beta), ye = 3.6 * Math.sqrt(eps * gam);   // ±3.6σ (2-rms is ±2σ)
+  const L = 46, R = 10, T = 8, B = 34, PW = w - L - R, PH = h - T - B;
+  if (PW <= 0 || PH <= 0) return requestAnimationFrame(() => { drawBeamPlots(); drawStart(); });
+  const X = v => L + (v - cu + xe) / (2 * xe) * PW, Y = v => T + (1 - (v - cup + ye) / (2 * ye)) * PH;
+  ctx.font = "11px system-ui"; ctx.lineWidth = 1; ctx.strokeStyle = css("--line"); ctx.fillStyle = css("--muted");
+  ctx.strokeRect(L, T, PW, PH);
+  const sx = niceStep(2 * xe / 5), sy = niceStep(2 * ye / 5);
+  ctx.textAlign = "center";
+  for (let v = Math.ceil((cu - xe) / sx) * sx; v <= cu + xe; v += sx) {
+    ctx.beginPath(); ctx.moveTo(X(v), T); ctx.lineTo(X(v), T + PH); ctx.stroke();
+    ctx.fillText(tick(v, sx), X(v), T + PH + 14);
+  }
+  ctx.textAlign = "right";
+  for (let v = Math.ceil((cup - ye) / sy) * sy; v <= cup + ye; v += sy) {
+    ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(L + PW, Y(v)); ctx.stroke();
+    ctx.fillText(tick(v, sy), L - 5, Y(v) + 4);
+  }
+  ctx.textAlign = "center"; ctx.fillText(xl, L + PW / 2, h - 4);
+  ctx.save(); ctx.translate(11, T + PH / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(yl, 0, 0); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T, PW, PH); ctx.clip();
+  const pc = css("--pass"), fc = css("--fail"); ctx.fillStyle = pc; ctx.globalAlpha = 0.4;
+  for (let i = 0; i < u.length; i++) {
+    if (ok) ctx.fillStyle = ok[i] ? pc : fc;
+    ctx.fillRect(X(u[i]) - 1, Y(up[i]) - 1, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+  // 2-rms ellipse: gamma u^2 + 2 alpha u u' + beta u'^2 = 4 eps
+  const E = 4 * eps; ctx.strokeStyle = css("--ell"); ctx.lineWidth = 2; ctx.beginPath();
+  for (let i = 0; i <= 200; i++) {
+    const th = 2 * Math.PI * i / 200, c = Math.cos(th), s = Math.sin(th);
+    const a = cu + Math.sqrt(E * beta) * c, b = cup + Math.sqrt(E / beta) * (-alpha * c - s);
+    i ? ctx.lineTo(X(a), Y(b)) : ctx.moveTo(X(a), Y(b));
+  }
+  ctx.stroke(); ctx.restore();
+}
+$("beamBtn").onclick = runBeam;
+$("waist_sigma").addEventListener("change", () => {
+  const sg = +$("waist_sigma").value;
+  if (!beam || !(sg > 0)) return;
+  const b = (sg * sg / beam.eps.x_rms).toPrecision(4);   // beta* = sigma^2 / eps
+  $("bx").value = $("by").value = b; $("ax").value = $("ay").value = 0;
+  runBeam();
+});
+
+// ---------------------------------------------------------------- transport / aperture
+let last = null, lastSweep = null;
+function apParams() {
+  const o = beamParams();
+  ["L_back", "z_ap", "diameter", "z_exit", "d_exit", "x0", "y0", "xp0", "yp0", "n"].forEach(k => o[k] = +$(k).value);
+  o.exit_on = true;   // net transmission through entrance + downstream apertures
+  return o;
+}
+async function runMC() {
+  $("runBtn").disabled = true; $("err").textContent = "";
+  try {
+    const p = apParams(), res = await post("/api/transport", p);
+    last = { p, res };
+    $("T").textContent = pct(res.transmission);
+    $("E").textContent = "± " + pct(res.std_error);
+    $("NP").textContent = res.n_pass.toLocaleString() + " / " + res.n.toLocaleString();
+    $("NE").textContent = pct(res.n_entrance / res.n);
+    const a = res.at_entrance;
+    $("SA").textContent = fmt(a.sigma_x) + " / " + fmt(a.sigma_y) + " mm";
+    $("SS").textContent = fmt(res.start.sigma_x) + " mm @ z = " + res.start.z + " mm";
+    $("LD").textContent = pct((res.n_entrance - res.n_pass) / res.n);
+    $("SX").textContent = fmt(res.at_exit.sigma_x) + " / " + fmt(res.at_exit.sigma_y) + " mm";
+    $("An").textContent = res.analytic_entrance === null ? "n/a (σx ≠ σy)" : pct(res.analytic_entrance);
+    $("AnX").textContent = res.analytic_exit === null ? "n/a (σx ≠ σy)" : pct(res.analytic_exit);
+    drawTransport();
+  } catch (e) { $("err").textContent = e.message; }
+  $("runBtn").disabled = false;
+}
+function drawTransport() { drawSide(); drawStart(); drawScatter(); }
+function drawStart() {
+  if (!last) return;
+  const r = last.res, s = r.start;
+  drawPhase($("cstart"), r.points.xs, r.points.xps, s.alpha_x, s.beta_x, r.eps, "x (mm)", "x′ (mrad)",
+            r.points.ok, last.p.x0 + last.p.xp0 * 1e-3 * s.z, last.p.xp0);
+}
+function drawSide() {
+  if (!last) return;
+  const { ctx, w, h } = setupCanvas($("side"));
+  const r = last.res, g = r.geom, env = r.env;
+  const L = 50, Rm = 14, T = 10, B = 34, PW = w - L - Rm, PH = h - T - B;
+  if (PW <= 0 || PH <= 0) return requestAnimationFrame(drawSide);
+  const z0 = g.z_start - 5, z1 = r.z_end;
+  let ext = 0;
+  env.z.forEach((_, i) => ext = Math.max(ext, Math.abs(env.cx[i]) + 2.6 * env.sx[i]));
+  ext = Math.max(ext, g.d_ap / 2 * 1.6, g.exit_on ? g.d_exit / 2 * 1.6 : 0);
+  const X = z => L + (z - z0) / (z1 - z0) * PW, Y = x => T + (1 - (x + ext) / (2 * ext)) * PH;
+  ctx.font = "11px system-ui"; ctx.lineWidth = 1; ctx.strokeStyle = css("--line"); ctx.fillStyle = css("--muted");
+  ctx.strokeRect(L, T, PW, PH);
+  const sz = niceStep((z1 - z0) / 8), sx = niceStep(2 * ext / 6);
+  ctx.textAlign = "center";
+  for (let z = Math.ceil(z0 / sz) * sz; z <= z1; z += sz) {
+    ctx.beginPath(); ctx.moveTo(X(z), T); ctx.lineTo(X(z), T + PH); ctx.stroke(); ctx.fillText(tick(z, sz), X(z), T + PH + 14);
+  }
+  ctx.textAlign = "right";
+  for (let x = Math.ceil(-ext / sx) * sx; x <= ext; x += sx) {
+    ctx.beginPath(); ctx.moveTo(L, Y(x)); ctx.lineTo(L + PW, Y(x)); ctx.stroke(); ctx.fillText(tick(x, sx), L - 5, Y(x) + 4);
+  }
+  ctx.textAlign = "center"; ctx.fillText("z (mm)", L + PW / 2, h - 4);
+  ctx.save(); ctx.translate(12, T + PH / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("x (mm)", 0, 0); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.rect(L, T, PW, PH); ctx.clip();
+  // rays: blocked rays end at the aperture that stops them
+  const pass = css("--pass"), fail = css("--fail"), ry = r.rays;
+  ctx.lineWidth = 0.8; ctx.globalAlpha = 0.5;
+  for (let i = 0; i < ry.xs.length; i++) {
+    const zEnd = ry.ok[i] ? z1 : (ry.ok_entr[i] ? g.z_exit : g.z_ap);
+    ctx.strokeStyle = ry.ok[i] ? pass : fail;
+    ctx.beginPath(); ctx.moveTo(X(g.z_start), Y(ry.xs[i]));
+    ctx.lineTo(X(zEnd), Y(ry.xs[i] + ry.slope[i] * (zEnd - g.z_start))); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  // envelope and centroid
+  ctx.strokeStyle = css("--ell"); ctx.lineWidth = 2;
+  for (const sgn of [1, -1]) {
+    ctx.beginPath(); env.z.forEach((z, i) => { const y = Y(env.cx[i] + sgn * 2 * env.sx[i]); i ? ctx.lineTo(X(z), y) : ctx.moveTo(X(z), y); }); ctx.stroke();
+  }
+  ctx.setLineDash([2, 3]); ctx.lineWidth = 1;
+  ctx.beginPath(); env.z.forEach((z, i) => i ? ctx.lineTo(X(z), Y(env.cx[i])) : ctx.moveTo(X(z), Y(env.cx[i]))); ctx.stroke();
+  // start plane
+  ctx.strokeStyle = css("--muted"); ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(X(g.z_start), T); ctx.lineTo(X(g.z_start), T + PH); ctx.stroke(); ctx.setLineDash([]);
+  // apertures as jaws
+  const jaws = (z, d) => {
+    ctx.fillStyle = css("--aperture");
+    ctx.fillRect(X(z) - 3, T, 6, Y(d / 2) - T);
+    ctx.fillRect(X(z) - 3, Y(-d / 2), 6, T + PH - Y(-d / 2));
+  };
+  jaws(g.z_ap, g.d_ap);
+  if (g.exit_on) jaws(g.z_exit, g.d_exit);
+  // waist marker
+  ctx.strokeStyle = css("--text"); ctx.lineWidth = 2;
+  const wx = X(0), wy = Y(env.cx[env.z.findIndex(z => z >= 0)] || 0);
+  ctx.beginPath(); ctx.moveTo(wx - 5, wy - 5); ctx.lineTo(wx + 5, wy + 5); ctx.moveTo(wx + 5, wy - 5); ctx.lineTo(wx - 5, wy + 5); ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = css("--muted"); ctx.textAlign = "left";
+  ctx.fillText("start", X(g.z_start) + 4, T + 12);
+  ctx.fillText("entrance Ø" + g.d_ap, X(g.z_ap) + 6, T + 12);
+  if (g.exit_on) { ctx.textAlign = "right"; ctx.fillText("downstream Ø" + g.d_exit, X(g.z_exit) - 6, T + 12); ctx.textAlign = "left"; }
+  ctx.textAlign = "right"; ctx.fillText("waist / gas-cell centre", X(0) - 8, T + PH - 6);
+}
+async function runSweep() {
+  $("sweepBtn").disabled = true; $("err").textContent = "";
+  try {
+    const p = Object.assign(apParams(), { var: $("var").value, lo: +$("lo").value, hi: +$("hi").value, steps: +$("steps").value });
+    lastSweep = await post("/api/transport_sweep", p);
+    drawSweep();
+  } catch (e) { $("err").textContent = e.message; }
+  $("sweepBtn").disabled = false;
+}
+function drawScatter() {
+  const { ctx, w, h } = setupCanvas($("scatter"));
+  if (!last) return;
+  const { res } = last, g = res.geom, R = g.d_ap / 2, a = res.at_entrance, sx = a.sigma_x, sy = a.sigma_y;
+  const ext = Math.max(R, Math.abs(a.cx) + 3.5 * sx, Math.abs(a.cy) + 3.5 * sy) * 1.08;
+  const pad = 34, S = Math.min(w, h) - 2 * pad, cx = pad + S / 2, cy = pad + S / 2, k = S / (2 * ext);
+  if (S <= 0) return requestAnimationFrame(drawScatter);
+  const X = x => cx + x * k, Y = y => cy - y * k;
+  ctx.strokeStyle = css("--line"); ctx.fillStyle = css("--muted"); ctx.font = "11px system-ui"; ctx.lineWidth = 1;
+  ctx.strokeRect(pad, pad, S, S);
+  const step = niceStep(ext * 2 / 6);
+  ctx.textAlign = "center";
+  for (let t = Math.ceil(-ext / step) * step; t <= ext; t += step) {
+    ctx.beginPath(); ctx.moveTo(X(t), pad); ctx.lineTo(X(t), pad + S); ctx.moveTo(pad, Y(t)); ctx.lineTo(pad + S, Y(t)); ctx.stroke();
+    ctx.fillText(tick(t, step), X(t), pad + S + 14);
+    ctx.textAlign = "right"; ctx.fillText(tick(t, step), pad - 4, Y(t) + 4); ctx.textAlign = "center";
+  }
+  ctx.fillText("x (mm)", cx, h - 4);
+  ctx.save(); ctx.translate(10, cy); ctx.rotate(-Math.PI / 2); ctx.fillText("y (mm)", 0, 0); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.rect(pad, pad, S, S); ctx.clip();
+  const pass = css("--pass"), fail = css("--fail"), pts = res.points;
+  ctx.globalAlpha = 0.55;
+  for (let i = 0; i < pts.xa.length; i++) {
+    ctx.fillStyle = pts.ok[i] ? pass : fail;
+    ctx.fillRect(X(pts.xa[i]) - 1.2, Y(pts.ya[i]) - 1.2, 2.4, 2.4);
+  }
+  ctx.globalAlpha = 1;
+  ctx.setLineDash([4, 3]); ctx.strokeStyle = css("--ell"); ctx.lineWidth = 1.5;
+  for (const m of [1, 2]) { ctx.beginPath(); ctx.ellipse(X(a.cx), Y(a.cy), m * sx * k, m * sy * k, 0, 0, 2 * Math.PI); ctx.stroke(); }
+  ctx.setLineDash([]);
+  ctx.strokeStyle = css("--aperture"); ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(X(0), Y(0), R * k, 0, 2 * Math.PI); ctx.stroke();
+  ctx.restore();
+}
+const VAR_LABEL = { sigma_w: "waist σ (mm)", x0: "x₀ (mm)", diameter: "entrance Ø (mm)", z_ap: "entrance z (mm)", d_exit: "downstream Ø (mm)", z_exit: "downstream z (mm)" };
+function drawSweep() {
+  const { ctx, w, h } = setupCanvas($("sweepCanvas"));
+  if (!lastSweep || !lastSweep.rows.length) return;
+  const rows = lastSweep.rows;
+  $("sweepVarLabel").textContent = { sigma_w: "waist σ", x0: "x₀", diameter: "entrance Ø", z_ap: "entrance z", d_exit: "downstream Ø", z_exit: "downstream z" }[lastSweep.var];
+  const L = 48, Rm = 12, T = 12, B = 36, PW = w - L - Rm, PH = h - T - B;
+  const vmin = rows[0].v, vmax = rows[rows.length - 1].v, span = (vmax - vmin) || 1;
+  const X = v => L + (v - vmin) / span * PW, Y = t => T + (1 - t) * PH;
+  ctx.strokeStyle = css("--line"); ctx.fillStyle = css("--muted"); ctx.font = "11px system-ui"; ctx.lineWidth = 1;
+  ctx.textAlign = "right";
+  for (let t = 0; t <= 1.0001; t += 0.2) {
+    ctx.beginPath(); ctx.moveTo(L, Y(t)); ctx.lineTo(L + PW, Y(t)); ctx.stroke();
+    ctx.fillText((t * 100).toFixed(0) + "%", L - 6, Y(t) + 4);
+  }
+  ctx.textAlign = "center";
+  const st = niceStep(span / 6);
+  for (let v = Math.ceil(vmin / st) * st; v <= vmax + 1e-9; v += st) ctx.fillText(tick(v, st), X(v), T + PH + 15);
+  ctx.fillText(VAR_LABEL[lastSweep.var], L + PW / 2, h - 4);
+  if (rows.some(r => r.analytic !== null)) {
+    ctx.strokeStyle = css("--muted"); ctx.lineWidth = 1.5; ctx.beginPath();
+    let started = false;
+    rows.forEach(r => { if (r.analytic === null) return; started ? ctx.lineTo(X(r.v), Y(r.analytic)) : ctx.moveTo(X(r.v), Y(r.analytic)); started = true; });
+    ctx.stroke();
+  }
+  ctx.strokeStyle = ctx.fillStyle = css("--pass");
+  for (const r of rows) {
+    ctx.beginPath(); ctx.moveTo(X(r.v), Y(r.t - r.err)); ctx.lineTo(X(r.v), Y(r.t + r.err)); ctx.stroke();
+    ctx.beginPath(); ctx.arc(X(r.v), Y(r.t), 3, 0, 2 * Math.PI); ctx.fill();
+  }
+}
+$("var").addEventListener("change", () => {
+  const d = { sigma_w: [0.2, 4], x0: [-4, 4], diameter: [1, 12], z_ap: [-150, -10], d_exit: [1, 14], z_exit: [10, 200] }[$("var").value];
+  $("lo").value = d[0]; $("hi").value = d[1];
+});
+$("runBtn").onclick = runMC;
+$("sweepBtn").onclick = runSweep;
+
+// Enter in a field re-runs the relevant section
+document.querySelectorAll("main:first-of-type input").forEach(el =>
+  el.addEventListener("keydown", e => e.key === "Enter" && runBeam()));
+document.querySelectorAll("main:last-of-type input").forEach(el =>
+  el.addEventListener("keydown", e => e.key === "Enter" && runMC()));
+["emit_def"].forEach(id => $(id).addEventListener("change", runBeam));
+window.addEventListener("resize", () => { drawBeamPlots(); drawTransport(); drawSweep(); });
+
+applySpecies();
+runBeam();
+</script>
+</body>
+</html>
